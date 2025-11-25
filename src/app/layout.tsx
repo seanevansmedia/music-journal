@@ -16,7 +16,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-zinc-950 text-zinc-100 antialiased selection:bg-emerald-500/30`}>
+      {/* 
+        FIX: Added 'suppressHydrationWarning' 
+        This tells React to ignore attributes added by browser extensions 
+        or theme providers, fixing the error you saw.
+      */}
+      <body 
+        suppressHydrationWarning={true}
+        className={`${inter.className} bg-zinc-950 text-zinc-100 antialiased selection:bg-emerald-500/30`}
+      >
         {children}
       </body>
     </html>

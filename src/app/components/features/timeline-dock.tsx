@@ -1,86 +1,83 @@
 "use client";
 
 import React from "react";
-import { Plus } from "lucide-react";
 import { GlassContainer } from "@/app/components/ui/glass-container";
+import { generateGradient } from "@/lib/utils";
 
 interface TimelineDockProps {
   isDark: boolean;
+  entries: any[]; 
+  activeId?: string;
+  onSelect: (entry: any) => void;
 }
 
-// Mock Data (Moved from page.tsx)
-const ENTRIES = [
-  { day: "24", month: "OCT", title: "Rainy Days", img: "bg-indigo-500" },
-  { day: "23", month: "OCT", title: "High Energy", img: "bg-orange-500" },
-  { day: "22", month: "OCT", title: "Deep Focus", img: "bg-teal-500" },
-  { day: "21", month: "OCT", title: "Night Drive", img: "bg-purple-600" },
-];
-
-export function TimelineDock({ isDark }: TimelineDockProps) {
+export function TimelineDock({ isDark, entries = [], activeId, onSelect }: TimelineDockProps) {
   
-  // Theme logic specific to the dock
-  const theme = {
-    // Background colors (passed to GlassContainer className)
-    containerBg: isDark ? "bg-black/40" : "bg-white/50",
-    
-    // Text
-    subText: isDark ? "text-zinc-400" : "text-zinc-600",
-    inputText: isDark ? "text-white" : "text-zinc-900",
+  const formatDate = (dateString: string) => {
+    if (!dateString) return { month: "", day: "" };
+    const date = new Date(dateString);
+    return {
+      month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+      day: date.getDate(),
+    };
+  };
 
-    // Interactive Elements
+  const theme = {
+    containerBg: isDark 
+      ? "bg-black/40" 
+      : "bg-white/80 shadow-2xl border border-white/60",
+    
+    subText: isDark ? "text-zinc-400" : "text-zinc-500 font-semibold",
+    inputText: isDark ? "text-white" : "text-zinc-900 font-bold",
+    
     dockItem: isDark 
       ? "bg-white/5 hover:bg-white/10" 
-      : "bg-white/60 hover:bg-white/80",
+      : "bg-white/40 border border-transparent hover:bg-white hover:shadow-md hover:border-black/5",
       
-    // The "New Entry" Plus Button
-    plusBtn: isDark 
-      ? "border-zinc-600 text-zinc-500 hover:border-white hover:text-white" 
-      : "border-zinc-400 text-zinc-400 hover:border-zinc-800 hover:text-zinc-800",
-
-    // Separator Line
-    separator: isDark ? "bg-zinc-800" : "bg-zinc-300",
-    
-    // Accessibility Focus Rings
-    focusRing: isDark 
-      ? "focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900" 
-      : "focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#e8e6e1]",
+    activeItem: isDark 
+      ? "bg-white/20 ring-1 ring-white/30" 
+      : "bg-white shadow-lg ring-1 ring-black/5 border border-black/5",
   };
 
   return (
     <GlassContainer
       isDark={isDark}
       as="nav"
-      ariaLabel="Journal Timeline"
-      className={`flex h-24 w-full max-w-4xl items-center gap-4 rounded-2xl px-6 ${theme.containerBg}`}
+      // UPDATED: Increased height to h-36 and added py-4 to center the scrollbar vertically
+      className={`flex h-36 w-full max-w-4xl items-center gap-4 rounded-2xl px-6 py-4 ${theme.containerBg}`}
     >
-      {/* New Entry Button */}
-      <button 
-        aria-label="Create New Entry"
-        className={`flex h-12 w-12 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-dashed transition outline-none ${theme.plusBtn} ${theme.focusRing}`}
-      >
-        <Plus size={24} aria-hidden="true" />
-      </button>
-       
-      {/* Vertical Separator */}
-      <div className={`h-8 w-[1px] mx-2 ${theme.separator}`} role="separator" />
-       
-      {/* Scrollable List */}
-      <div className="flex flex-1 gap-4 overflow-x-auto scrollbar-hide items-center">
-        {ENTRIES.map((entry, i) => (
-          <button 
-            key={i} 
-            aria-label={`View entry for ${entry.month} ${entry.day}: ${entry.title}`}
-            className={`group flex flex-shrink-0 cursor-pointer items-center gap-3 rounded-xl p-2 pr-4 transition outline-none ${theme.dockItem} ${theme.focusRing}`}
-          >
-             {/* Decorative visual block for image placeholder */}
-             <div aria-hidden="true" className={`h-10 w-10 rounded-lg ${entry.img} opacity-80`} />
-             
-             <div className="flex flex-col text-left">
-                <span className={`text-[10px] font-bold tracking-wider ${theme.subText}`}>{entry.month} {entry.day}</span>
-                <span className={`text-xs font-medium ${theme.inputText}`}>{entry.title}</span>
-             </div>
-          </button>
-        ))}
+      <div className="flex flex-1 gap-4 overflow-x-auto items-center px-2 h-full">
+        
+        {entries.length === 0 ? (
+           <div className="w-full flex justify-center items-center h-full">
+             <span className={`text-lg font-medium ${theme.subText} italic`}>
+               No entries yet. Start writing above!
+             </span>
+           </div>
+        ) : (
+          entries.map((entry) => {
+            const { month, day } = formatDate(entry.created_at);
+            const isActive = activeId === entry.id;
+            const uniqueGradient = generateGradient(entry.id);
+            
+            return (
+              <button 
+                key={entry.id} 
+                onClick={() => onSelect(entry)}
+                className={`group flex flex-shrink-0 cursor-pointer items-center gap-3 rounded-xl p-2 pr-4 transition-all duration-300 outline-none ${isActive ? theme.activeItem : theme.dockItem}`}
+              >
+                 <div className={`h-10 w-10 rounded-lg shadow-lg flex items-center justify-center text-[10px] font-bold text-white/90 ${uniqueGradient}`}>
+                    {entry.mood?.[0] || "?"}
+                 </div>
+                 
+                 <div className="flex flex-col text-left">
+                    <span className={`text-[10px] font-bold tracking-wider ${theme.subText}`}>{month} {day}</span>
+                    <span className={`text-xs font-medium truncate w-24 ${theme.inputText}`}>{entry.title || "Untitled"}</span>
+                 </div>
+              </button>
+            );
+          })
+        )}
       </div>
     </GlassContainer>
   );

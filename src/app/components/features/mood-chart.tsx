@@ -18,7 +18,16 @@ const MOOD_VALUES: Record<string, number> = {
   "Energetic": 100 // High Energy
 };
 
-// 2. Y-AXIS LABELS (To replace numbers)
+// 2. NEW: PROFESSIONAL TOOLTIP LABELS
+// Replaces "Dreamy/Floating" with "Mellow/Flow State"
+const TOOLTIP_LABELS: Record<string, string> = {
+  "Sad": "Low Energy",
+  "Dreamy": "Mellow",
+  "Floating": "Flow State",
+  "Energetic": "High Energy"
+};
+
+// 3. Y-AXIS LABELS
 const formatYAxis = (tickItem: number) => {
   if (tickItem <= 25) return "Low";
   if (tickItem <= 50) return "Mellow";
@@ -49,13 +58,16 @@ export function MoodChart({ entries, onClose, isDark }: MoodChartProps) {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      // Get the professional label, fallback to raw mood if missing
+      const label = TOOLTIP_LABELS[data.mood] || data.mood;
+      
       return (
         <div className={`${theme.tooltipBg} border p-3 rounded-lg shadow-xl backdrop-blur-md`}>
           <p className="text-xs text-zinc-500 mb-1">{data.fullDate}</p>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white">{data.mood}</span>
-            {/* Show value for context if needed */}
-            {/* <span className="text-xs text-zinc-500">({data.value}%)</span> */}
+            <span className={`text-sm font-bold ${theme.text}`}>
+              {label}
+            </span>
           </div>
         </div>
       );
@@ -92,21 +104,13 @@ export function MoodChart({ entries, onClose, isDark }: MoodChartProps) {
               <defs>
                 {/* 
                    DYNAMIC GRADIENT DEFINITION
-                   This gradient spans from Top (1) to Bottom (0).
-                   We map colors to the Y-axis values.
                 */}
                 <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
-                  {/* High Energy (100) -> Gold/Orange */}
                   <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.8}/> 
-                  
-                  {/* Mid Energy (50) -> Purple/Pink */}
                   <stop offset="50%" stopColor="#8B5CF6" stopOpacity={0.5}/> 
-                  
-                  {/* Low Energy (20) -> Blue/Teal */}
                   <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.2}/> 
                 </linearGradient>
                 
-                {/* Stroke Gradient (Optional, usually solid color looks cleaner for line, but let's try gradient) */}
                 <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                    <stop offset="0%" stopColor="#F59E0B" />
                    <stop offset="50%" stopColor="#8B5CF6" />
@@ -130,21 +134,21 @@ export function MoodChart({ entries, onClose, isDark }: MoodChartProps) {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: theme.axisText, fontSize: 10 }}
-                ticks={[20, 50, 75, 100]} // Force these ticks
-                tickFormatter={formatYAxis} // Use text labels instead of numbers
+                ticks={[20, 50, 75, 100]} 
+                tickFormatter={formatYAxis} 
                 domain={[0, 110]} 
                 width={40}
               />
               
-              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(212,175,55,0.4)', strokeWidth: 1 }} />
               
               <Area 
                 type="monotone" 
                 dataKey="value" 
-                stroke="url(#lineGradient)" // Gradient Line
+                stroke="url(#lineGradient)" 
                 strokeWidth={3}
                 fillOpacity={1} 
-                fill="url(#moodGradient)"   // Gradient Fill
+                fill="url(#moodGradient)" 
                 activeDot={{ r: 6, fill: isDark ? "white" : "black", strokeWidth: 0 }}
                 animationDuration={1500}
               />

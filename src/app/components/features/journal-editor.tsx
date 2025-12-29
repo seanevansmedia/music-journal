@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Calendar, Sparkles, Loader2, ArrowLeft, PenTool, CheckCircle2, XCircle, Trash2, AlertCircle } from "lucide-react";
+import { Calendar, Sparkles, Loader2, ArrowLeft, PenTool, CheckCircle2, XCircle, Trash2, BarChart2, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { VIBE_DB, determineMood, shuffle } from "@/lib/data";
 
@@ -11,8 +11,7 @@ interface JournalEditorProps {
   onCreateNew?: () => void; 
   onSuccess?: () => void;
   onDelete?: (id: string) => void;
-  // Removed onShowStats as it's handled in the header now
-  onShowStats?: () => void; 
+  onShowStats?: () => void;
   sessionId?: string;
   hasEntries?: boolean;
 }
@@ -33,19 +32,19 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
 
   async function handleSave(formData: FormData) {
     if (!sessionId) return; 
-    
-    const title = formData.get("title") as string;
-    const content = formData.get("content") as string;
-
-    if (!title.trim() || !content.trim()) {
-      setNotification({ type: 'error', message: "Please fill out both fields." });
-      return;
-    }
-
     setIsSaving(true);
     setNotification(null);
 
     try {
+      const title = formData.get("title") as string;
+      const content = formData.get("content") as string;
+
+      if (!title.trim() || !content.trim()) {
+        setNotification({ type: 'error', message: "Please fill out both fields." });
+        setIsSaving(false);
+        return;
+      }
+
       const mood = determineMood(content + " " + title);
       const songPool = VIBE_DB[mood] || VIBE_DB["Dreamy"];
       const generatedPlaylist = shuffle([...songPool]).slice(0, 5);
@@ -84,17 +83,21 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
     subText: isDark ? "text-zinc-400" : "text-zinc-600",
     inputPlaceholder: isDark ? "placeholder-zinc-500" : "placeholder-zinc-400",
     inputText: isDark ? "text-white" : "text-zinc-900",
+    focusRing: isDark 
+      ? "focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900" 
+      : "focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#e8e6e1]",
     actionButton: isDark 
       ? "bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.3)]" 
       : "bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg",
-    
-    // Shared button style
     secondaryButton: isDark
       ? "border border-white/20 text-zinc-300 hover:bg-white/10 hover:text-white"
       : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 hover:text-black",
+    iconBtn: isDark
+      ? "text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
+      : "text-zinc-400 hover:text-black hover:bg-black/5 cursor-pointer",
   };
 
-  // --- VIEW MODE (Reading an old entry) ---
+  // --- VIEW MODE ---
   if (entry) {
     const date = new Date(entry.created_at).toLocaleDateString('en-US', { 
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' 
@@ -103,7 +106,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
     return (
       <article className="flex flex-1 flex-col p-10 lg:p-16 h-full relative animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
         
-        {/* HEADER ROW */}
+        {/* HEADER */}
         <div className="flex items-center justify-between mb-8 px-4">
            <div className={`flex items-center gap-3 text-sm font-medium tracking-widest uppercase ${theme.subText}`}>
               <Calendar size={14} />
@@ -120,9 +123,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
         </div>
 
         {/* FOOTER */}
-        <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row gap-4 justify-between items-center relative px-4">
-           
-           {/* LEFT: Write New */}
+        <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center relative px-4">
            <button 
              onClick={onCreateNew}
              className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all cursor-pointer ${theme.secondaryButton}`}
@@ -130,15 +131,17 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
              <ArrowLeft size={16} /> Write New Entry
            </button>
            
-           {/* RIGHT: Delete Entry (Updated to match styling) */}
-           {onDelete && (
-              <button 
-                onClick={handleDeleteClick} 
-                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all cursor-pointer ${theme.secondaryButton} hover:border-red-500/50 hover:text-red-400`}
-              >
-                <Trash2 size={16} /> Delete Entry
-              </button>
-            )}
+           <div className="flex items-center gap-2">
+             {onDelete && (
+                <button 
+                  onClick={handleDeleteClick} 
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${theme.iconBtn}`}
+                  title="Delete Entry"
+                >
+                  <Trash2 size={24} />
+                </button>
+              )}
+           </div>
         </div>
 
         {/* DELETE MODAL */}
@@ -188,14 +191,22 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
         />
         
         <label htmlFor="entry-body" className="sr-only">Journal Entry Text</label>
+        {/* 
+           CHANGE 1: Added min-h-[30vh] for mobile length. 
+           lg:min-h-0 resets it for desktop split view. 
+        */}
         <textarea 
           id="entry-body"
           name="content" 
-          className={`flex-1 resize-none bg-transparent text-lg font-light leading-loose focus:outline-none rounded-lg p-4 ${theme.inputText} ${theme.inputPlaceholder}`}
+          className={`flex-1 min-h-[30vh] lg:min-h-0 resize-none bg-transparent text-lg font-light leading-loose focus:outline-none rounded-lg p-4 ${theme.inputText} ${theme.inputPlaceholder}`}
           placeholder="Breathe in. Write it out. What is the texture of your thoughts today?"
         />
 
-        <div className="mt-8 flex items-center justify-start relative px-4">
+        {/* 
+           CHANGE 2: Changed justify-start to justify-center (Mobile) 
+           and lg:justify-start (Desktop) 
+        */}
+        <div className="mt-8 flex items-center justify-center lg:justify-start relative px-4">
            <button 
             type="submit"
             disabled={isSaving}

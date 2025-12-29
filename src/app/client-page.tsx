@@ -99,19 +99,22 @@ export function ClientPageRoot() {
   if (!hasMounted) return <div className={`h-screen w-full ${theme.bg}`} />;
 
   return (
-    <div className={`relative flex h-screen w-full flex-col overflow-hidden transition-colors duration-700 ${theme.bg} ${theme.text} ${sharedScroll} ${colorScroll}`}>
+    <div className={`relative flex flex-col min-h-screen lg:h-screen w-full lg:overflow-hidden transition-colors duration-700 ${theme.bg} ${theme.text} ${sharedScroll} ${colorScroll}`}>
       
       {/* Backgrounds */}
       <div aria-hidden="true" className={`absolute -top-20 -left-20 h-96 w-96 rounded-full blur-[120px] transition-colors duration-1000 ${isDark ? "bg-indigo-600/30" : "bg-blue-600/40"}`} />
       <div aria-hidden="true" className={`absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full blur-[120px] transition-colors duration-1000 ${isDark ? "bg-rose-600/20" : "bg-orange-500/30"}`} />
 
-      <main className="z-10 flex h-full flex-col items-center justify-center gap-6 p-6">
+      {/* 
+         MAIN CONTENT AREA
+         - CHANGE: Reduced 'pt-20' to 'pt-6' on mobile to lessen top padding above icons.
+      */}
+      <main className="z-10 flex flex-col items-center justify-center gap-6 p-6 pt-6 lg:p-6 lg:h-full">
         
-        {/* TOP CONTROLS */}
+        {/* Header Icons */}
         <div className="flex gap-4 z-50">
            {entries.length > 0 && (
              <>
-               {/* 1. VIBE HISTORY BUTTON */}
                <button 
                   onClick={() => setShowStats(!showStats)} 
                   className={`${headerBtnClass} ${showStats ? (isDark ? "bg-white/30" : "bg-black/20") : ""}`} 
@@ -120,24 +123,21 @@ export function ClientPageRoot() {
                  <BarChart2 size={24} />
                </button>
 
-               {/* 2. CLEAR HISTORY BUTTON */}
                <button onClick={requestClearHistory} className={headerBtnClass} title="Clear All History">
                  <Trash2 size={24} />
                </button>
              </>
            )}
-           
-           {/* 3. THEME TOGGLE */}
            <button onClick={() => setIsDark(!isDark)} className={headerBtnClass} title="Toggle Theme">
              {isDark ? <Sun size={24} /> : <Moon size={24} />}
            </button>
         </div>
 
-        {/* GLASS CONTAINER */}
+        {/* Glass Container */}
         <GlassContainer 
           isDark={isDark} 
           as="section" 
-          className="flex h-[75vh] w-full max-w-6xl overflow-hidden rounded-[3rem] flex-row"
+          className="flex flex-col h-auto w-full max-w-6xl rounded-[2rem] mt-4 mb-4 xl:mt-0 xl:mb-0 xl:h-[75vh] xl:flex-row xl:overflow-hidden xl:rounded-[3rem]"
         >
           {showStats ? (
             <MoodChart entries={entries} onClose={() => setShowStats(false)} isDark={isDark} />
@@ -152,6 +152,7 @@ export function ClientPageRoot() {
                 onDelete={handleDeleteEntry}
                 hasEntries={entries.length > 0}
               />
+              
               <PlayerSidebar 
                 isDark={isDark} 
                 playlist={activeEntry?.playlist || []}
@@ -162,7 +163,7 @@ export function ClientPageRoot() {
           )}
         </GlassContainer>
 
-        {/* Timeline (Cleaned) */}
+        {/* Timeline */}
         <TimelineDock 
           isDark={isDark} 
           entries={entries} 
@@ -174,7 +175,7 @@ export function ClientPageRoot() {
 
       {/* Delete Modal */}
       {showClearHistoryConfirm && (
-        <div className="absolute inset-0 z-[100] bg-zinc-950/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] bg-zinc-950/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 animate-in fade-in zoom-in-95 duration-200">
           <div className="max-w-md w-full">
             <AlertCircle size={64} className="text-red-500 mb-6 mx-auto" />
             <h3 className="text-3xl font-bold text-white mb-2">Clear History?</h3>

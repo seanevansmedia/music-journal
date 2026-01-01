@@ -92,9 +92,6 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
     secondaryButton: isDark
       ? "border border-white/20 text-zinc-300 hover:bg-white/10 hover:text-white"
       : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 hover:text-black",
-    iconBtn: isDark
-      ? "text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
-      : "text-zinc-400 hover:text-black hover:bg-black/5 cursor-pointer",
   };
 
   // --- VIEW MODE ---
@@ -104,7 +101,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
     });
 
     return (
-      <article className="flex flex-1 flex-col p-10 lg:p-16 h-full relative animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
+      <article className="flex flex-1 flex-col p-6 lg:p-16 h-full relative animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
         
         {/* HEADER */}
         <div className="flex items-center justify-between mb-8 px-4">
@@ -123,25 +120,37 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
         </div>
 
         {/* FOOTER */}
-        <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center relative px-4">
+        <div className="mt-8 pt-6 border-t border-white/5 flex flex-row justify-between items-center gap-4 relative px-4">
+           
+           {/* Left: Write New Entry Button */}
            <button 
              onClick={onCreateNew}
-             className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all cursor-pointer ${theme.secondaryButton}`}
+             className={`flex items-center justify-center gap-2 flex-1 md:flex-none px-4 md:px-6 py-3 rounded-full text-[11px] md:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${theme.secondaryButton}`}
            >
              <ArrowLeft size={16} /> Write New Entry
            </button>
            
-           <div className="flex items-center gap-2">
-             {onDelete && (
-                <button 
-                  onClick={handleDeleteClick} 
-                  className={`p-2 rounded-full transition-colors cursor-pointer ${theme.iconBtn}`}
-                  title="Delete Entry"
-                >
-                  <Trash2 size={24} />
-                </button>
-              )}
-           </div>
+           {/* Right: Trash Can (Updated styling for both Mobile and Desktop) */}
+           {onDelete && (
+              <button 
+                onClick={handleDeleteClick} 
+                /* 
+                   FIX: Unified red styling. 
+                   bg-red-500/10 provides a soft glow.
+                   border-red-500/20 adds subtle definition.
+                   text-red-500 makes the icon pop.
+                */
+                className={`
+                  p-3 md:p-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer
+                  bg-red-500/10 hover:bg-red-500/20 
+                  border border-red-500/20 hover:border-red-500/40
+                  text-red-500 shadow-sm
+                `}
+                title="Delete Entry"
+              >
+                <Trash2 size={24} />
+              </button>
+            )}
         </div>
 
         {/* DELETE MODAL */}
@@ -150,7 +159,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
             <AlertCircle size={48} className="text-red-500 mb-4" />
             <h3 className="text-2xl font-bold text-white mb-2">Delete this entry?</h3>
             <p className="text-zinc-400 mb-8 max-w-xs">This action cannot be undone.</p>
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4 w-full justify-center px-8">
               <button 
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors cursor-pointer"
@@ -159,7 +168,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
               </button>
               <button 
                 onClick={confirmDelete}
-                className="px-8 py-3 bg-red-600 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-red-500 hover:scale-105 transition-all shadow-lg cursor-pointer"
+                className="px-8 py-4 md:py-3 bg-red-600 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-red-500 hover:scale-105 transition-all shadow-lg cursor-pointer"
               >
                 Yes, Delete
               </button>
@@ -172,7 +181,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
 
   // --- CREATE MODE ---
   return (
-    <article className="flex flex-1 flex-col p-10 lg:p-16 relative">
+    <article className="flex flex-1 flex-col p-6 lg:p-16 relative">
       <div className="flex items-center justify-between mb-8 px-4">
         <div className={`flex items-center gap-3 text-sm font-medium tracking-widest uppercase ${theme.subText}`}>
           <PenTool size={14} aria-hidden="true" />
@@ -191,10 +200,6 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
         />
         
         <label htmlFor="entry-body" className="sr-only">Journal Entry Text</label>
-        {/* 
-           CHANGE 1: Added min-h-[30vh] for mobile length. 
-           lg:min-h-0 resets it for desktop split view. 
-        */}
         <textarea 
           id="entry-body"
           name="content" 
@@ -202,15 +207,11 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
           placeholder="Breathe in. Write it out. What is the texture of your thoughts today?"
         />
 
-        {/* 
-           CHANGE 2: Changed justify-start to justify-center (Mobile) 
-           and lg:justify-start (Desktop) 
-        */}
-        <div className="mt-8 flex items-center justify-center lg:justify-start relative px-4">
+        <div className="mt-8 flex items-center justify-center lg:justify-start relative px-4 w-full">
            <button 
             type="submit"
             disabled={isSaving}
-            className={`group flex items-center gap-2 rounded-full px-8 py-3 font-semibold transition-all hover:scale-[1.02] outline-none cursor-pointer ${theme.actionButton} disabled:opacity-50`}
+            className={`group flex items-center justify-center gap-2 rounded-full w-full lg:w-auto flex-shrink-0 px-8 py-4 lg:py-3 font-semibold transition-all hover:scale-[1.02] outline-none cursor-pointer whitespace-nowrap ${theme.actionButton} disabled:opacity-50`}
            >
              {isSaving ? (
                <Loader2 size={16} className="animate-spin" />
@@ -222,7 +223,7 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
 
            {notification && (
              <div className={`
-                absolute left-4 -top-16 flex items-center gap-3 px-6 py-3 rounded-xl border backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300
+                absolute left-4 -top-20 md:-top-16 flex items-center gap-3 px-6 py-3 rounded-xl border backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300 z-10
                 ${notification.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}
              `}>
                 {notification.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}

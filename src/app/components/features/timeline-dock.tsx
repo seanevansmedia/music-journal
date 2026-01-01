@@ -35,37 +35,46 @@ export function TimelineDock({ isDark, entries = [], activeId, onSelect }: Timel
     <GlassContainer
       isDark={isDark}
       as="nav"
-      className={`flex h-36 w-full max-w-4xl items-center gap-4 rounded-2xl px-6 py-4 ${theme.containerBg}`}
+      /* 
+         MOBILE: Vertical stack, max height to prevent pushing UI off screen
+         DESKTOP: Horizontal dock, fixed height
+      */
+      className={`flex flex-col md:flex-row h-auto md:h-36 max-h-80 md:max-h-none w-full max-w-4xl items-center gap-4 rounded-2xl px-6 py-4 overflow-hidden ${theme.containerBg}`}
     >
-      <div className="flex flex-1 gap-4 overflow-x-auto items-center px-2 h-full">
+      <div className="flex flex-col md:flex-row flex-1 gap-4 overflow-y-auto md:overflow-y-visible md:overflow-x-auto items-stretch md:items-center px-2 h-full w-full custom-scrollbar">
         
         {entries.length === 0 ? (
-           <div className="w-full flex justify-center items-center h-full">
-             <span className={`text-lg font-medium ${theme.subText} italic`}>
-               No entries yet. Start writing above!
+           <div className="w-full flex justify-center items-center h-20 md:h-full">
+             <span className={`text-lg font-medium ${theme.subText}`}>
+               No entries yet. Start writing above.
              </span>
            </div>
         ) : (
           entries.map((entry) => {
             const { month, day } = formatDate(entry.created_at);
             const isActive = activeId === entry.id;
-            
-            // 🎨 PASS ID FOR VARIATION
             const moodGradient = getMoodGradient(entry.mood, entry.id);
             
             return (
               <button 
                 key={entry.id} 
                 onClick={() => onSelect(entry)}
-                className={`group flex flex-shrink-0 cursor-pointer items-center gap-3 rounded-xl p-2 pr-4 transition-all duration-300 outline-none ${isActive ? theme.activeItem : theme.dockItem}`}
+                className={`group flex flex-shrink-0 md:flex-shrink-0 w-full md:w-auto cursor-pointer items-center gap-3 rounded-xl p-3 md:p-2 md:pr-4 transition-all duration-300 outline-none ${isActive ? theme.activeItem : theme.dockItem}`}
               >
-                 <div className={`h-10 w-10 rounded-lg shadow-lg flex items-center justify-center text-[10px] font-bold text-white/90 ${moodGradient}`}>
+                 <div className={`h-12 w-12 md:h-10 md:w-10 rounded-lg shadow-lg flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white/90 ${moodGradient}`}>
                     {entry.mood?.[0] || "?"}
                  </div>
                  
-                 <div className="flex flex-col text-left">
-                    <span className={`text-[10px] font-bold tracking-wider ${theme.subText}`}>{month} {day}</span>
-                    <span className={`text-xs font-medium truncate w-24 ${theme.inputText}`}>{entry.title || "Untitled"}</span>
+                 <div className="flex flex-col text-left overflow-hidden">
+                    {/* UPDATED: Changed from text-[10px] to text-xs */}
+                    <span className={`text-xs font-bold tracking-wider ${theme.subText}`}>
+                      {month} {day}
+                    </span>
+                    
+                    {/* UPDATED: Changed from text-xs to text-sm */}
+                    <span className={`text-sm font-medium truncate w-full md:w-24 ${theme.inputText}`}>
+                      {entry.title || "Untitled"}
+                    </span>
                  </div>
               </button>
             );

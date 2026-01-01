@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Moon, Sun, Trash2, AlertCircle, BarChart2 } from "lucide-react";
+import { User } from "@supabase/supabase-js"; // Import the User type
 import { createClient } from "@/lib/supabase/client";
 import { GlassContainer } from "@/app/components/ui/glass-container";
 import { JournalEditor } from "@/app/components/features/journal-editor";
@@ -10,37 +11,45 @@ import { TimelineDock } from "@/app/components/features/timeline-dock";
 import { MoodChart } from "@/app/components/features/mood-chart";
 import { getSessionId } from "@/lib/data";
 
-export function ClientPageRoot() {
+// Define the interface so TypeScript (and Vercel) is happy
+interface ClientPageRootProps {
+  user: User | null;
+  initialEntries: any[];
+}
+
+export function ClientPageRoot({ user, initialEntries }: ClientPageRootProps) {
   const [hasMounted, setHasMounted] = useState(false);
   const [isDark, setIsDark] = useState(true);
-  const [entries, setEntries] = useState<any[]>([]);
-  const [activeEntry, setActiveEntry] = useState<any>(null);
-  const [sessionId, setSessionId] = useState("");
-  const [showStats, setShowStats] = useState(false);
   
+  // Initialize entries with the data fetched from the server
+  const [entries, setEntries] = useState<any[]>(initialEntries);
+  const [activeEntry, setActiveEntry] = useState<any>(initialEntries.length > 0 ? initialEntries[0] : null);
+  
+  // Use user.id if available, otherwise fallback to your getSessionId logic
+  const [sessionId, setSessionId] = useState(user?.id || "");
+  
+  const [showStats, setShowStats] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
 
   const supabase = createClient();
 
   useEffect(() => {
     setHasMounted(true);
-    const id = getSessionId();
-    setSessionId(id);
+    
+    // If no authenticated user, get the guest session ID
+    if (!user) {
+      const id = getSessionId();
+      setSessionId(id);
+    }
+  }, [user]);
 
-    const fetchEntries = async () => {
-      const { data } = await supabase
-        .from("entries")
-        .select("*")
-        .eq("session_id", id)
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        setEntries(data);
-        if (data.length > 0) setActiveEntry(data[0]);
-      }
-    };
-    fetchEntries();
-  }, []);
+  // Keep entries in sync if the server data changes
+  useEffect(() => {
+    setEntries(initialEntries);
+    if (initialEntries.length > 0 && !activeEntry) {
+      setActiveEntry(initialEntries[0]);
+    }
+  }, [initialEntries]);
 
   const refreshData = async () => {
     const { data } = await supabase
@@ -105,10 +114,6 @@ export function ClientPageRoot() {
       <div aria-hidden="true" className={`absolute -top-20 -left-20 h-96 w-96 rounded-full blur-[120px] transition-colors duration-1000 ${isDark ? "bg-indigo-600/30" : "bg-blue-600/40"}`} />
       <div aria-hidden="true" className={`absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full blur-[120px] transition-colors duration-1000 ${isDark ? "bg-rose-600/20" : "bg-orange-500/30"}`} />
 
-      {/* 
-         MAIN CONTENT AREA
-         - CHANGE: Reduced 'pt-20' to 'pt-6' on mobile to lessen top padding above icons.
-      */}
       <main className="z-10 flex flex-col items-center justify-center gap-6 p-6 pt-6 lg:p-6 lg:h-full">
         
         {/* Header Icons */}

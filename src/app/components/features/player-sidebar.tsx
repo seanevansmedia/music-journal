@@ -87,9 +87,9 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
   const sliderFillColor = isDark ? "#fff" : "#000";
   const sliderTrackColor = isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)";
   
-  // Visual track height is kept small (4px) but the input itself is large (40px)
+  /* 🛠️ PRECISE CHANGE: Changed 'background' to 'backgroundImage' to fix Console Error */
   const sliderStyle = {
-    background: `linear-gradient(to right, ${sliderFillColor} 0%, ${sliderFillColor} ${volume}%, ${sliderTrackColor} ${volume}%, ${sliderTrackColor} 100%)`,
+    backgroundImage: `linear-gradient(to right, ${sliderFillColor} 0%, ${sliderFillColor} ${volume}%, ${sliderTrackColor} ${volume}%, ${sliderTrackColor} 100%)`,
     backgroundSize: '100% 4px',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat'
@@ -109,11 +109,14 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
         input[type='range'] { 
           -webkit-appearance: none; 
           appearance: none; 
-          height: 40px; /* Large touch target height */
+          height: 40px; 
           background: transparent;
+          outline: none;
+          -webkit-tap-highlight-color: transparent;
         }
+
+        input[type='range']:focus { outline: none; }
         
-        /* 🛠️ PRECISE CHANGE: Large thumb and hit area for mobile */
         input[type='range']::-webkit-slider-thumb { 
           -webkit-appearance: none; 
           appearance: none; 
@@ -122,8 +125,9 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
           border-radius: 50%; 
           background: ${sliderFillColor}; 
           cursor: pointer; 
-          border: 8px solid transparent; /* Massive invisible hit area */
+          border: 8px solid transparent; 
           background-clip: content-box;
+          -webkit-tap-highlight-color: transparent;
         }
         input[type='range']::-moz-range-thumb { 
           height: 24px; 
@@ -195,11 +199,7 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
         {displayList.map((track, i) => {
           const isActive = hasTracks && i === currentTrackIndex;
           return (
-            <li 
-              key={i} 
-              onClick={() => playTrack(i)} 
-              className={`flex items-center justify-between group rounded-lg p-2 transition cursor-pointer ${hasTracks ? (isActive ? theme.activeTrack : "hover:bg-white/5") : "opacity-30 cursor-default"}`}
-            >
+            <li key={i} onClick={() => playTrack(i)} className={`flex items-center justify-between group rounded-lg p-2 transition cursor-pointer ${hasTracks ? (isActive ? theme.activeTrack : "hover:bg-white/5") : "opacity-30 cursor-default"}`}>
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isActive ? (isDark ? "bg-white text-black" : "bg-black text-white") : theme.playButton}`}>
                    {isActive && isPlaying ? <div className="flex gap-0.5 h-3 items-end"><div className="w-1 bg-current animate-bounce h-2" /><div className="w-1 bg-current animate-bounce h-3 [animation-delay:0.2s]" /><div className="w-1 bg-current animate-bounce h-1 [animation-delay:0.4s]" /></div> : <Play size={12} fill="currentColor" />}

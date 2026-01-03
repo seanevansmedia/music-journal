@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1, Lock } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1 } from "lucide-react";
 import YouTube, { YouTubeProps } from "react-youtube";
 import { getMoodGradient } from "@/lib/utils";
 
@@ -27,7 +27,9 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [volume, setVolume] = useState(100);
   const [hasMounted, setHasMounted] = useState(false);
+  
   const playerRef = useRef<any>(null);
+  const errorSkipCount = useRef(0); // 🛡️ PREVENTS INFINITE LOOPS
 
   const barData = useMemo(() => [...Array(24)].map((_, i) => ({
     delay: Math.random() * 2,
@@ -37,17 +39,34 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
 
   useEffect(() => { setHasMounted(true); }, []);
 
+  // Effect 1: Handle Play/Pause Toggle
   useEffect(() => {
     if (!playerRef.current) return;
-    if (isPlaying) playerRef.current.playVideo();
-    else playerRef.current.pauseVideo();
+    try {
+      if (isPlaying) playerRef.current.playVideo();
+      else playerRef.current.pauseVideo();
+    } catch (e) {
+      console.warn("Player not ready yet");
+    }
   }, [isPlaying]);
 
+  // Effect 2: Handle Track Change (Autoplay Logic)
   useEffect(() => {
     if (playerRef.current && playlist[currentTrackIndex]?.url) {
       const videoId = getYouTubeID(playlist[currentTrackIndex].url);
-      if (isPlaying) { playerRef.current.loadVideoById(videoId); playerRef.current.unMute(); } 
-      else { playerRef.current.cueVideoById(videoId); }
+      
+      // Safety: Don't try to load if ID is missing (prevents crashes)
+      if (!videoId) {
+        console.warn("Invalid Video ID, skipping...");
+        handleSkip('next');
+        return;
+      }
+
+      if (isPlaying) { 
+        playerRef.current.loadVideoById(videoId); // Using standard string syntax
+      } else { 
+        playerRef.current.cueVideoById(videoId); 
+      }
     }
   }, [currentTrackIndex, playlist]);
 
@@ -63,15 +82,57 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
 
   const playTrack = (index: number) => {
     if (!hasTracks) return;
+    errorSkipCount.current = 0; // Reset error count on manual selection
     setCurrentTrackIndex(index);
     setIsPlaying(true);
+  };
+
+  const handleSkip = (direction: 'next' | 'prev') => {
+    if (!hasTracks) return;
+    setIsPlaying(true);
+    setCurrentTrackIndex((prev) => {
+      if (direction === 'next') return (prev + 1) % playlist.length;
+      return prev === 0 ? playlist.length - 1 : prev - 1;
+    });
   };
 
   const onReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target;
     event.target.setVolume(volume);
     event.target.unMute();
-    if (isPlaying) event.target.playVideo();
+    
+    // ⚡ FORCE AUTOPLAY ON LOAD
+    // Only force if we have a valid track to prevent immediate error loops
+    if (hasTracks && getYouTubeID(playlist[0]?.url)) {
+      setIsPlaying(true);
+      event.target.playVideo();
+    }
+  };
+
+  // 🛡️ SAFE ERROR HANDLER
+  const onError: YouTubeProps['onError'] = (event) => {
+    console.warn("Track unavailable. Skipping:", playlist[currentTrackIndex]?.title);
+    
+    // Protection: If we skipped 5 times in a row without success, stop trying.
+    if (errorSkipCount.current > 5) {
+      console.error("Too many broken tracks. Stopping playback to prevent crash.");
+      setIsPlaying(false);
+      errorSkipCount.current = 0;
+      return;
+    }
+
+    errorSkipCount.current += 1;
+    handleSkip('next');
+  };
+
+  const onStateChange: YouTubeProps['onStateChange'] = (e) => {
+    // 1 = Playing. If we start playing successfully, reset the error counter.
+    if (e.data === 1) {
+      setIsPlaying(true);
+      errorSkipCount.current = 0; 
+    }
+    if (e.data === 2) setIsPlaying(false);
+    if (e.data === 0) handleSkip('next');
   };
 
   const theme = {
@@ -87,7 +148,6 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
   const sliderFillColor = isDark ? "#fff" : "#000";
   const sliderTrackColor = isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)";
   
-  /* 🛠️ PRECISE CHANGE: Changed 'background' to 'backgroundImage' to fix Console Error */
   const sliderStyle = {
     backgroundImage: `linear-gradient(to right, ${sliderFillColor} 0%, ${sliderFillColor} ${volume}%, ${sliderTrackColor} ${volume}%, ${sliderTrackColor} 100%)`,
     backgroundSize: '100% 4px',
@@ -114,7 +174,6 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
           outline: none;
           -webkit-tap-highlight-color: transparent;
         }
-
         input[type='range']:focus { outline: none; }
         
         input[type='range']::-webkit-slider-thumb { 
@@ -141,7 +200,22 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
       `}} />
 
       <div style={{ position: "fixed", opacity: 0.001, pointerEvents: "none", zIndex: -1 }}>
-        <YouTube opts={{ height: '1', width: '1', playerVars: { autoplay: 0, controls: 0, modestbranding: 1, playsinline: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined } }} onReady={onReady} onStateChange={(e) => { if (e.data === 1) setIsPlaying(true); if (e.data === 2) setIsPlaying(false); if (e.data === 0) setCurrentTrackIndex((prev) => (prev + 1) % playlist.length); }} />
+        <YouTube 
+          opts={{ 
+            height: '1', 
+            width: '1', 
+            playerVars: { 
+              autoplay: 1, 
+              controls: 0, 
+              modestbranding: 1, 
+              playsinline: 1, 
+              origin: typeof window !== 'undefined' ? window.location.origin : undefined 
+            } 
+          }} 
+          onReady={onReady} 
+          onError={onError}
+          onStateChange={onStateChange}
+        />
       </div>
 
       <div className={`mb-6 mx-auto h-70 w-full flex items-center justify-center rounded-2xl shadow-xl transition-all duration-1000 ${hasTracks ? discGradient : (isDark ? "bg-white/5" : "bg-black/5")} relative z-10 overflow-hidden`}>
@@ -169,11 +243,11 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
 
       <div className="mb-6 flex flex-col items-center gap-4 w-full">
         <div className="flex items-center justify-center gap-8 w-full">
-          <button onClick={() => setCurrentTrackIndex((prev) => (prev === 0 ? playlist.length - 1 : prev - 1))} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipBack size={28} /></button>
+          <button onClick={() => handleSkip('prev')} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipBack size={28} /></button>
           <button onClick={togglePlay} className={`flex h-16 w-16 items-center justify-center rounded-full shadow-2xl transition-all cursor-pointer ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>
             {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
           </button>
-          <button onClick={() => setCurrentTrackIndex((prev) => (prev + 1) % playlist.length)} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipForward size={28} /></button>
+          <button onClick={() => handleSkip('next')} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipForward size={28} /></button>
         </div>
 
         <div className="w-full flex items-center gap-4 px-2 group py-2">

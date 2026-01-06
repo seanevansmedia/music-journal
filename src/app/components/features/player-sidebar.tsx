@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1, Loader2 } from "lucide-react";
 import YouTube, { YouTubeProps } from "react-youtube";
 import { getMoodGradient } from "@/lib/utils";
 
@@ -27,9 +27,10 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [volume, setVolume] = useState(100);
   const [hasMounted, setHasMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const playerRef = useRef<any>(null);
-  const errorSkipCount = useRef(0); // 🛡️ PREVENTS INFINITE LOOPS
+  const errorSkipCount = useRef(0); 
 
   const barData = useMemo(() => [...Array(24)].map((_, i) => ({
     delay: Math.random() * 2,
@@ -39,36 +40,49 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
 
   useEffect(() => { setHasMounted(true); }, []);
 
-  // Effect 1: Handle Play/Pause Toggle
+  // 🎵 EFFECT 1: Autoplay when playlist initially loads
+  useEffect(() => {
+    if (playlist.length > 0 && playerRef.current) {
+       if (!isPlaying) {
+         setIsLoading(true);
+         setIsPlaying(true);
+       }
+    }
+  }, [playlist]); 
+
+  // 🎵 EFFECT 2: Handle Play/Pause Toggle
   useEffect(() => {
     if (!playerRef.current) return;
     try {
-      if (isPlaying) playerRef.current.playVideo();
-      else playerRef.current.pauseVideo();
+      const playerState = playerRef.current.getPlayerState();
+      if (playerState !== -1 && playerState !== 5) {
+         if (isPlaying) playerRef.current.playVideo();
+         else playerRef.current.pauseVideo();
+      }
     } catch (e) {
-      console.warn("Player not ready yet");
+      console.warn("Player state sync warning");
     }
   }, [isPlaying]);
 
-  // Effect 2: Handle Track Change (Autoplay Logic)
+  // 🎵 EFFECT 3: Handle Track Change
   useEffect(() => {
     if (playerRef.current && playlist[currentTrackIndex]?.url) {
       const videoId = getYouTubeID(playlist[currentTrackIndex].url);
       
-      // Safety: Don't try to load if ID is missing (prevents crashes)
       if (!videoId) {
-        console.warn("Invalid Video ID, skipping...");
         handleSkip('next');
         return;
       }
 
-      if (isPlaying) { 
-        playerRef.current.loadVideoById(videoId); // Using standard string syntax
-      } else { 
-        playerRef.current.cueVideoById(videoId); 
+      if (isPlaying) {
+        // ⚡ FIX: Use Object Syntax for better reliability.
+        // This forces YouTube to treat this as a "Load and Play" command.
+        playerRef.current.loadVideoById({ videoId: videoId });
+      } else {
+        playerRef.current.cueVideoById({ videoId: videoId });
       }
     }
-  }, [currentTrackIndex, playlist]);
+  }, [currentTrackIndex, playlist]); 
 
   const hasTracks = playlist && playlist.length > 0;
   const displayList = hasTracks ? playlist : GHOST_TRACKS;
@@ -82,13 +96,15 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
 
   const playTrack = (index: number) => {
     if (!hasTracks) return;
-    errorSkipCount.current = 0; // Reset error count on manual selection
-    setCurrentTrackIndex(index);
-    setIsPlaying(true);
+    errorSkipCount.current = 0;
+    setIsLoading(true); // Set loading ON
+    setIsPlaying(true); // Ensure Play state is TRUE
+    setCurrentTrackIndex(index); // Trigger Effect 3
   };
 
   const handleSkip = (direction: 'next' | 'prev') => {
     if (!hasTracks) return;
+    setIsLoading(true);
     setIsPlaying(true);
     setCurrentTrackIndex((prev) => {
       if (direction === 'next') return (prev + 1) % playlist.length;
@@ -101,38 +117,41 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
     event.target.setVolume(volume);
     event.target.unMute();
     
-    // ⚡ FORCE AUTOPLAY ON LOAD
-    // Only force if we have a valid track to prevent immediate error loops
-    if (hasTracks && getYouTubeID(playlist[0]?.url)) {
+    if (hasTracks) {
+      setIsLoading(true);
       setIsPlaying(true);
-      event.target.playVideo();
+      setTimeout(() => {
+         event.target.playVideo();
+      }, 100);
     }
   };
 
-  // 🛡️ SAFE ERROR HANDLER
   const onError: YouTubeProps['onError'] = (event) => {
     console.warn("Track unavailable. Skipping:", playlist[currentTrackIndex]?.title);
+    setIsLoading(false);
     
-    // Protection: If we skipped 5 times in a row without success, stop trying.
     if (errorSkipCount.current > 5) {
-      console.error("Too many broken tracks. Stopping playback to prevent crash.");
       setIsPlaying(false);
       errorSkipCount.current = 0;
       return;
     }
-
     errorSkipCount.current += 1;
     handleSkip('next');
   };
 
   const onStateChange: YouTubeProps['onStateChange'] = (e) => {
-    // 1 = Playing. If we start playing successfully, reset the error counter.
-    if (e.data === 1) {
+    if (e.data === 1) { // Playing
+      setIsLoading(false); 
       setIsPlaying(true);
       errorSkipCount.current = 0; 
     }
-    if (e.data === 2) setIsPlaying(false);
-    if (e.data === 0) handleSkip('next');
+    // Removed buffering check to prevent resume flicker
+    
+    if (e.data === 2) { // Paused
+       setIsPlaying(false);
+       setIsLoading(false);
+    }
+    if (e.data === 0) handleSkip('next');  // Ended
   };
 
   const theme = {
@@ -141,6 +160,7 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
     subText: isDark ? "text-zinc-400" : "text-zinc-600",
     activeTrack: isDark ? "bg-white/10" : "bg-black/5",
     playButton: isDark ? "bg-white/10 text-white" : "bg-black/5 text-black",
+    iconButton: `p-2 text-zinc-400 cursor-pointer transition-colors ${isDark ? "hover:text-white" : "hover:text-black"}`,
   };
 
   if (!hasMounted) return <div className={`w-full p-8 lg:w-96 flex flex-col ${theme.sidebar}`} />;
@@ -150,8 +170,8 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
   
   const sliderStyle = {
     backgroundImage: `linear-gradient(to right, ${sliderFillColor} 0%, ${sliderFillColor} ${volume}%, ${sliderTrackColor} ${volume}%, ${sliderTrackColor} 100%)`,
-    backgroundSize: '100% 4px',
-    backgroundPosition: 'center',
+    backgroundSize: '100% 4px', 
+    backgroundPosition: 'center', 
     backgroundRepeat: 'no-repeat'
   };
 
@@ -169,33 +189,41 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
         input[type='range'] { 
           -webkit-appearance: none; 
           appearance: none; 
-          height: 40px; 
+          height: 12px; 
           background: transparent;
           outline: none;
-          -webkit-tap-highlight-color: transparent;
+          cursor: pointer;
+          width: 100%;
         }
-        input[type='range']:focus { outline: none; }
         
         input[type='range']::-webkit-slider-thumb { 
           -webkit-appearance: none; 
           appearance: none; 
-          height: 24px; 
-          width: 24px; 
+          height: 12px; 
+          width: 12px; 
           border-radius: 50%; 
           background: ${sliderFillColor}; 
           cursor: pointer; 
-          border: 8px solid transparent; 
-          background-clip: content-box;
-          -webkit-tap-highlight-color: transparent;
+          border: none;
+          transition: transform 0.1s;
         }
+        
+        input[type='range']::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+
         input[type='range']::-moz-range-thumb { 
-          height: 24px; 
-          width: 24px; 
+          height: 12px; 
+          width: 12px; 
           border-radius: 50%; 
           background: ${sliderFillColor}; 
           cursor: pointer; 
-          border: 8px solid transparent; 
-          background-clip: content-box;
+          border: none;
+          transition: transform 0.1s;
+        }
+        
+        input[type='range']::-moz-range-thumb:hover {
+          transform: scale(1.2);
         }
       `}} />
 
@@ -218,15 +246,17 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
         />
       </div>
 
-      <div className={`mb-6 mx-auto h-70 w-full flex items-center justify-center rounded-2xl shadow-xl transition-all duration-1000 ${hasTracks ? discGradient : (isDark ? "bg-white/5" : "bg-black/5")} relative z-10 overflow-hidden`}>
-         {isPlaying && <div className="absolute inset-0 bg-white/10 blur-3xl animate-pulse" />}
-         <div className="flex items-center justify-center gap-[6px] h-32 relative z-20">
+      <div className={`mb-6 mx-auto h-65 w-full flex items-center justify-center rounded-2xl shadow-xl transition-all duration-1000 ${hasTracks ? discGradient : (isDark ? "bg-white/5" : "bg-black/5")} relative z-10 overflow-hidden`}>
+         {/* ⚡ FIX: Visualizer only animates if playing AND NOT loading */}
+         {isPlaying && !isLoading && <div className="absolute inset-0 bg-white/10 blur-3xl animate-pulse" />}
+         
+         <div className="flex items-center justify-center gap-[6px] h-16 relative z-20">
             {barData.map((bar, i) => (
-              <div key={i} className={`w-1.5 rounded-full transition-all duration-700 ${isPlaying ? 'animate-playing shadow-lg' : 'animate-resting'}`}
+              <div key={i} className={`w-1.5 rounded-full transition-all duration-700 ${isPlaying && !isLoading ? 'animate-playing shadow-lg' : 'animate-resting'}`}
                 style={{
-                  height: `${Math.max(10, 48 - (Math.abs(11.5 - i) * 3.5))}px`,
-                  backgroundColor: isPlaying ? bar.color : "rgba(255, 255, 255, 0.7)",
-                  boxShadow: isPlaying ? `0 0 12px ${bar.color}` : "none",
+                  height: `${Math.max(4, 32 - (Math.abs(11.5 - i) * 2.5))}px`,
+                  backgroundColor: isPlaying && !isLoading ? bar.color : "rgba(255, 255, 255, 0.7)",
+                  boxShadow: isPlaying && !isLoading ? `0 0 12px ${bar.color}` : "none",
                   // @ts-ignore
                   '--speed': `${bar.speed}s`,
                   animationDelay: isPlaying ? `${bar.delay}s` : `${i * 0.1}s`,
@@ -237,17 +267,21 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
       </div>
 
       <div className="mb-4 text-center lg:text-left">
-        <h2 className={`text-2xl font-medium ${theme.inputText} truncate`}>{currentTrack.title}</h2>
+        <h2 className={`text-2xl font-medium ${theme.inputText} truncate`}>
+           {isLoading ? "Loading Track..." : currentTrack.title}
+        </h2>
         <p className={`text-sm ${theme.subText} uppercase tracking-widest`}>{hasTracks ? `${currentTrack.artist} • ${mood}` : currentTrack.artist}</p>
       </div>
 
       <div className="mb-6 flex flex-col items-center gap-4 w-full">
         <div className="flex items-center justify-center gap-8 w-full">
-          <button onClick={() => handleSkip('prev')} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipBack size={28} /></button>
+          <button onClick={() => handleSkip('prev')} className={theme.iconButton}><SkipBack size={28} /></button>
+          
           <button onClick={togglePlay} className={`flex h-16 w-16 items-center justify-center rounded-full shadow-2xl transition-all cursor-pointer ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>
-            {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
+            {isLoading ? <Loader2 size={28} className="animate-spin" /> : isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
           </button>
-          <button onClick={() => handleSkip('next')} className="p-2 text-zinc-400 hover:text-white cursor-pointer"><SkipForward size={28} /></button>
+          
+          <button onClick={() => handleSkip('next')} className={theme.iconButton}><SkipForward size={28} /></button>
         </div>
 
         <div className="w-full flex items-center gap-4 px-2 group py-2">
@@ -276,7 +310,13 @@ export function PlayerSidebar({ isDark, playlist = [], mood = "Chill", entryId =
             <li key={i} onClick={() => playTrack(i)} className={`flex items-center justify-between group rounded-lg p-2 transition cursor-pointer ${hasTracks ? (isActive ? theme.activeTrack : "hover:bg-white/5") : "opacity-30 cursor-default"}`}>
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isActive ? (isDark ? "bg-white text-black" : "bg-black text-white") : theme.playButton}`}>
-                   {isActive && isPlaying ? <div className="flex gap-0.5 h-3 items-end"><div className="w-1 bg-current animate-bounce h-2" /><div className="w-1 bg-current animate-bounce h-3 [animation-delay:0.2s]" /><div className="w-1 bg-current animate-bounce h-1 [animation-delay:0.4s]" /></div> : <Play size={12} fill="currentColor" />}
+                   {isActive && isLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                   ) : isActive && isPlaying ? (
+                      <div className="flex gap-0.5 h-3 items-end"><div className="w-1 bg-current animate-bounce h-2" /><div className="w-1 bg-current animate-bounce h-3 [animation-delay:0.2s]" /><div className="w-1 bg-current animate-bounce h-1 [animation-delay:0.4s]" /></div> 
+                   ) : (
+                      <Play size={12} fill="currentColor" />
+                   )}
                 </div>
                 <div className="overflow-hidden">
                   <p className={`text-sm font-medium truncate ${theme.inputText}`}>{track.title}</p>

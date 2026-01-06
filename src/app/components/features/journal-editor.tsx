@@ -72,9 +72,26 @@ export function JournalEditor({ isDark, entry, onCreateNew, onSuccess, onDelete,
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
-    if (onDelete && entry) {
-      onDelete(entry.id);
+  // ⚡ FIX: Added async Supabase deletion logic here
+  const confirmDelete = async () => {
+    if (entry) {
+      try {
+        // 1. Actually delete from Supabase
+        const { error } = await supabase
+          .from("entries")
+          .delete()
+          .eq("id", entry.id);
+
+        if (error) throw error;
+
+        // 2. If successful, update the UI via the parent prop
+        if (onDelete) {
+          onDelete(entry.id);
+        }
+      } catch (error) {
+        setNotification({ type: 'error', message: "Failed to delete entry." });
+        console.error("Delete error:", error);
+      }
     }
     setShowDeleteConfirm(false);
   };
